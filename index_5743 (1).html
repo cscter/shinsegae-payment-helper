@@ -1,0 +1,1935 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>신세계 복합결제 도우미</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', '맑은 고딕', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #eef2f7;
+      color: #1e293b;
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* ── VIEW TOGGLE BAR ── */
+    .view-toggle-bar {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 20px;
+      background: #1e293b;
+      height: 42px;
+    }
+    .toggle-label {
+      font-size: .73rem;
+      color: rgba(255,255,255,.42);
+      font-weight: 500;
+      letter-spacing: .04em;
+    }
+    .toggle-btns { display: flex; }
+    .view-btn {
+      padding: 5px 15px;
+      font-size: .78rem;
+      font-weight: 700;
+      font-family: inherit;
+      border: 1px solid rgba(255,255,255,.28);
+      background: transparent;
+      color: rgba(255,255,255,.52);
+      cursor: pointer;
+      transition: background .14s, color .14s;
+      line-height: 1.5;
+    }
+    .view-btn:first-child { border-radius: 5px 0 0 5px; }
+    .view-btn:last-child  { border-radius: 0 5px 5px 0; border-left: none; }
+    .view-btn.active      { background: #fff; color: #1e293b; border-color: #fff; }
+    .view-btn:not(.active):hover { background: rgba(255,255,255,.12); color: #fff; }
+    @media print { .view-toggle-bar { display: none !important; } }
+
+    /* ── PC LAYOUT WRAPPERS ── */
+    #appOuter, .app-outer { padding: 20px 16px 60px; }
+    #appShell, .app-shell { max-width: 880px; margin: 0 auto; }
+
+    /* ── HEADER ── */
+    .app-header {
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+      color: white;
+      padding: 30px 28px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 6px 24px rgba(37,99,235,.35);
+      text-align: center;
+    }
+    .app-header h1 { font-size: 1.9rem; font-weight: 800; letter-spacing: -.02em; margin-bottom: 6px; }
+    .app-header p  { font-size: .95rem; opacity: .85; }
+
+    /* ── SELECTION CARD ── */
+    .selection-card {
+      background: white;
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    }
+    .cat-block + .cat-block { margin-top: 24px; padding-top: 24px; border-top: 1px solid #e2e8f0; }
+
+    .cat-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      padding: 9px 14px;
+      border-radius: 8px;
+      border-left: 4px solid currentColor;
+      margin-bottom: 14px;
+    }
+    .cat-coupon .cat-header { color: #5b21b6; background: #f5f3ff; }
+    .cat-point  .cat-header { color: #b45309; background: #fffbeb; }
+    .cat-pay    .cat-header { color: #1d4ed8; background: #eff6ff; }
+    .cat-sale   .cat-header { color: #065f46; background: #ecfdf5; }
+
+    .checkbox-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 8px;
+    }
+
+    .cat-subblock + .cat-subblock { margin-top: 14px; }
+    .cat-subheader {
+      font-size: .9rem;
+      font-weight: 700;
+      color: #64748b;
+      margin-bottom: 8px;
+      padding-left: 2px;
+    }
+
+    .cb-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      border: 2px solid #e2e8f0;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: border-color .12s, background .12s;
+      font-size: .85rem;
+      font-weight: 500;
+      color: #334155;
+      user-select: none;
+    }
+    .cb-label:hover   { border-color: #93c5fd; background: #f0f7ff; }
+    .cb-label.checked { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
+
+    .cat-coupon .cb-label:hover                { border-color: #c4b5fd; background: #faf5ff; }
+    .cat-coupon .cb-label.checked              { border-color: #7c3aed; background: #f5f3ff; color: #5b21b6; }
+    .cat-coupon .cb-label input[type=checkbox] { accent-color: #7c3aed; }
+    .cat-point  .cb-label:hover                { border-color: #fcd34d; background: #fffbeb; }
+    .cat-point  .cb-label.checked              { border-color: #d97706; background: #fef3c7; color: #92400e; }
+    .cat-point  .cb-label input[type=checkbox] { accent-color: #d97706; }
+    .cat-pay    .cb-label:hover                { border-color: #93c5fd; background: #eff6ff; }
+    .cat-pay    .cb-label.checked              { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
+    .cat-pay    .cb-label input[type=checkbox] { accent-color: #2563eb; }
+    .cat-sale   .cb-label:hover                { border-color: #6ee7b7; background: #f0fdf4; }
+    .cat-sale   .cb-label.checked              { border-color: #059669; background: #ecfdf5; color: #065f46; }
+    .cat-sale   .cb-label input[type=checkbox] { accent-color: #059669; }
+
+    .cb-label input[type=checkbox] {
+      width: 17px; height: 17px;
+      accent-color: #2563eb;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* ── CATEGORY HINTS ── */
+    .cat-hints {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .cat-hint-line {
+      font-size: .78rem;
+      color: #64748b;
+      line-height: 1.75;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+    }
+
+    body.mobile-preview .cat-hint-line { font-size: .8rem; }
+
+    /* ── SUMMARY & BUTTONS ── */
+    .sel-summary { text-align: center; font-size: .9rem; color: #64748b; margin-bottom: 14px; }
+    .sel-count   { font-weight: 700; color: #2563eb; font-size: 1rem; }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+    .btn {
+      padding: 14px 38px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: inherit;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all .14s;
+      letter-spacing: -.01em;
+    }
+    .btn-confirm {
+      background: #2563eb;
+      color: white;
+      box-shadow: 0 4px 14px rgba(37,99,235,.35);
+      min-width: 130px;
+    }
+    .btn-confirm:hover { background: #1d4ed8; transform: translateY(-1px); }
+    .btn-confirm:active { transform: none; }
+    .btn-reset { background: white; color: #64748b; border: 2px solid #cbd5e1; }
+    .btn-reset:hover { border-color: #94a3b8; background: #f8fafc; }
+
+    /* ── STATUS BANNER ── */
+    .status-banner {
+      border-radius: 14px;
+      padding: 14px 20px;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+    .status-banner .s-title { font-size: 1.35rem; font-weight: 800; letter-spacing: -.02em; }
+    .banner-ok      { background: #f0fdf4; border: 3px solid #86efac; color: #166534; }
+    .banner-fail    { background: #fff1f2; border: 3px solid #fda4af; color: #9f1239; }
+    .banner-caution { background: #fffbeb; border: 3px solid #fcd34d; color: #92400e; }
+
+    /* ── RESULT CARDS ── */
+    .res-card {
+      background: white;
+      border-radius: 14px;
+      padding: 22px 24px;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.07);
+    }
+    .res-card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .conflict-list { display: flex; flex-direction: column; gap: 8px; }
+    .conflict-row  {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 15px;
+      background: #fff1f2;
+      border: 1.5px solid #fda4af;
+      border-radius: 8px;
+      font-size: .97rem;
+      color: #be123c;
+      font-weight: 500;
+    }
+    .cf-badge {
+      width: 22px; height: 22px;
+      background: #e11d48;
+      color: white;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .7rem; font-weight: 900;
+      flex-shrink: 0;
+    }
+    .cf-vs { color: #f43f5e; font-weight: 700; margin: 0 2px; }
+
+    .alt-intro {
+      font-size: .9rem; color: #475569;
+      margin-bottom: 14px; padding: 10px 14px;
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+    }
+    .alt-list { display: flex; flex-direction: column; gap: 10px; }
+    .alt-item {
+      padding: 14px 16px;
+      background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px;
+      cursor: pointer;
+      transition: background .14s, border-color .14s, box-shadow .14s, transform .1s;
+    }
+    .alt-item:hover {
+      background: #dcfce7; border-color: #4ade80;
+      box-shadow: 0 3px 10px rgba(22,163,74,.18);
+    }
+    .alt-item:active { transform: scale(.99); }
+    .alt-label {
+      font-size: .78rem; font-weight: 700; color: #16a34a;
+      text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px;
+    }
+    .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag {
+      padding: 5px 12px;
+      background: white; border: 1.5px solid #86efac; border-radius: 20px;
+      font-size: .9rem; color: #15803d; font-weight: 600;
+    }
+    .more-alts { text-align: center; font-size: .88rem; color: #6b7280; padding: 8px 0 0; }
+
+    .note-list { display: flex; flex-direction: column; gap: 9px; }
+    .note-row  {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 12px 15px; background: #fffbeb;
+      border: 1.5px solid #fcd34d; border-radius: 9px;
+    }
+    .note-name { font-size: .88rem; font-weight: 700; color: #92400e; white-space: nowrap; flex-shrink: 0; line-height: 1.6; }
+    .note-text { font-size: .92rem; color: #78350f; line-height: 1.65; }
+
+    .cr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .cr-box  { padding: 14px 16px; border-radius: 10px; border: 1.5px solid; }
+    .cr-box.yes { background: #f0fdf4; border-color: #86efac; }
+    .cr-box.no  { background: #fff1f2; border-color: #fda4af; }
+    .cr-box-title { font-size: .95rem; font-weight: 700; margin-bottom: 10px; }
+    .cr-box.yes .cr-box-title { color: #15803d; }
+    .cr-box.no  .cr-box-title { color: #be123c; }
+    .cr-items { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+    .cr-items li { font-size: .92rem; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+    .cr-box.yes .cr-items li { color: #15803d; }
+    .cr-box.no  .cr-items li { color: #be123c; }
+    .cr-items li::before { content: '•'; font-size: 1.1rem; flex-shrink: 0; }
+    .cr-empty { font-size: .88rem; opacity: .55; font-style: italic; }
+
+    .global-note {
+      background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px;
+      padding: 13px 15px; font-size: .92rem; color: #475569; line-height: 1.7;
+    }
+    .global-note + .global-note { margin-top: 8px; }
+
+    .cr-status {
+      border-radius: 10px;
+      padding: 18px 16px 14px;
+      text-align: center;
+      margin-bottom: 14px;
+      border: 2px solid;
+    }
+    .cr-status .cr-s-title { font-size: 1.1rem; font-weight: 800; letter-spacing: -.02em; }
+    .cr-status .cr-s-tags  { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+    .cr-status .cr-s-tag   { padding: 3px 11px; border-radius: 20px; font-size: .85rem; font-weight: 600; border: 1.5px solid; }
+    .cr-status.cr-ok   { background: #f0fdf4; border-color: #86efac; color: #166534; }
+    .cr-status.cr-ok   .cr-s-tag { background: white; border-color: #86efac; color: #15803d; }
+    .cr-status.cr-fail { background: #fff1f2; border-color: #fda4af; color: #9f1239; }
+    .cr-status.cr-fail .cr-s-tag { background: white; border-color: #fda4af; color: #be123c; }
+    body.mobile-preview .cr-status             { padding: 13px 12px 10px; margin-bottom: 11px; }
+    body.mobile-preview .cr-status .cr-s-title { font-size: .97rem; }
+    body.mobile-preview .cr-status .cr-s-tag   { font-size: .78rem; padding: 2px 9px; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: 30px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1e293b; color: white;
+      padding: 12px 24px; border-radius: 30px;
+      font-size: .95rem; font-weight: 600;
+      opacity: 0; transition: opacity .25s, transform .25s;
+      pointer-events: none; white-space: nowrap; z-index: 9999;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ══════════════════════════════════════════════
+       MOBILE FRAME — wide screen PC preview
+       (body.mobile-preview.wide-screen)
+    ══════════════════════════════════════════════ */
+    body.mobile-preview.wide-screen {
+      background: #4b5563;
+    }
+    body.mobile-preview.wide-screen #appOuter,
+    body.mobile-preview.wide-screen .app-outer {
+      background: #4b5563;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 32px 20px 52px;
+      min-height: calc(100vh - 42px);
+    }
+    body.mobile-preview.wide-screen #appShell,
+    body.mobile-preview.wide-screen .app-shell {
+      width: 360px;
+      max-width: 360px;
+      height: 800px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: white;
+      border-radius: 40px;
+      border: 6px solid #111827;
+      box-shadow:
+        0 28px 70px rgba(0,0,0,.55),
+        inset 0 0 0 1px rgba(255,255,255,.07);
+      flex-shrink: 0;
+      scroll-behavior: smooth;
+      margin: 0;
+    }
+    body.mobile-preview.wide-screen #appShell::-webkit-scrollbar,
+    body.mobile-preview.wide-screen .app-shell::-webkit-scrollbar { width: 3px; }
+    body.mobile-preview.wide-screen #appShell::-webkit-scrollbar-thumb,
+    body.mobile-preview.wide-screen .app-shell::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+    /* ══════════════════════════════════════════════
+       MOBILE CONTENT OVERRIDES
+       (body.mobile-preview — both frame & real device)
+    ══════════════════════════════════════════════ */
+    body.mobile-preview .app-header {
+      border-radius: 0;
+      padding: 18px 16px 14px;
+      margin-bottom: 0;
+      box-shadow: none;
+    }
+    body.mobile-preview .app-header h1 { font-size: 1.3rem; margin-bottom: 3px; }
+    body.mobile-preview .app-header p  { font-size: .8rem; }
+
+    body.mobile-preview .selection-card {
+      border-radius: 0;
+      padding: 14px 14px 16px;
+      margin-bottom: 0;
+      box-shadow: none;
+      border-top: 1px solid #e2e8f0;
+    }
+    body.mobile-preview .cat-block + .cat-block { margin-top: 16px; padding-top: 16px; }
+    body.mobile-preview .cat-header             { font-size: .88rem; padding: 7px 12px; margin-bottom: 11px; }
+    body.mobile-preview .cat-subheader          { font-size: .8rem; }
+
+    body.mobile-preview .checkbox-grid          { grid-template-columns: 1fr 1fr; gap: 6px; }
+    body.mobile-preview .cb-label               { padding: 11px 9px; gap: 7px; border-radius: 8px; }
+    body.mobile-preview .cb-label input[type=checkbox] { width: 18px; height: 18px; }
+
+    body.mobile-preview .sel-summary {
+      margin: 0;
+      padding: 9px 16px;
+      font-size: .88rem;
+      background: white;
+      border-top: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: center;
+    }
+
+    body.mobile-preview .btn-row {
+      margin: 0;
+      padding: 11px 14px;
+      gap: 8px;
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
+      justify-content: flex-start;
+    }
+    body.mobile-preview .btn          { flex: 1; min-width: 0; padding: 14px 8px; font-size: .95rem; border-radius: 9px; }
+    body.mobile-preview .btn-confirm  { flex: 2; }
+
+    body.mobile-preview .status-banner {
+      border-radius: 0;
+      padding: 12px 14px;
+      margin-bottom: 0;
+      border-left: none; border-right: none;
+    }
+    body.mobile-preview .status-banner .s-title { font-size: 1.05rem; }
+
+    body.mobile-preview .res-card {
+      border-radius: 0;
+      box-shadow: none;
+      padding: 14px 14px;
+      margin-bottom: 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    body.mobile-preview .res-card-title { font-size: .9rem; margin-bottom: 11px; }
+
+    body.mobile-preview .conflict-row  { padding: 9px 11px; font-size: .84rem; gap: 7px; flex-wrap: wrap; }
+    body.mobile-preview .cf-badge      { width: 19px; height: 19px; font-size: .62rem; }
+
+    body.mobile-preview .alt-intro     { font-size: .82rem; padding: 8px 11px; margin-bottom: 11px; }
+    body.mobile-preview .alt-item      { padding: 11px 13px; }
+    body.mobile-preview .alt-label     { font-size: .72rem; margin-bottom: 7px; }
+    body.mobile-preview .tag           { font-size: .8rem; padding: 4px 9px; }
+
+    body.mobile-preview .note-row      { flex-direction: column; align-items: flex-start; padding: 10px 11px; gap: 0; }
+    body.mobile-preview .note-name     { font-size: .79rem; white-space: nowrap; margin-bottom: 4px; }
+    body.mobile-preview .note-text     { font-size: .81rem; }
+
+    body.mobile-preview .cr-grid       { grid-template-columns: 1fr; gap: 8px; margin-bottom: 11px; }
+    body.mobile-preview .cr-box        { padding: 11px 13px; }
+    body.mobile-preview .cr-box-title  { font-size: .88rem; margin-bottom: 8px; }
+    body.mobile-preview .cr-items li   { font-size: .84rem; }
+    body.mobile-preview .global-note   { font-size: .81rem; padding: 10px 12px; }
+
+    /* ══════════════════════════════════════════════
+       NARROW DEVICE — real phone, no frame decoration
+       (body.mobile-preview without .wide-screen)
+    ══════════════════════════════════════════════ */
+    body.mobile-preview:not(.wide-screen) {
+      background: #eef2f7;
+    }
+    body.mobile-preview:not(.wide-screen) #appOuter,
+    body.mobile-preview:not(.wide-screen) .app-outer {
+      padding: 0 0 80px;
+    }
+    body.mobile-preview:not(.wide-screen) #appShell,
+    body.mobile-preview:not(.wide-screen) .app-shell {
+      max-width: 100%;
+      margin: 0;
+      height: auto;
+      overflow: visible;
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+      background: transparent;
+    }
+
+    /* ── AUTH OVERLAY ── */
+    #authOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: linear-gradient(150deg, #1e3a8a 0%, #1e293b 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #authOverlay.hidden { display: none; }
+
+    .auth-card {
+      background: white;
+      border-radius: 20px;
+      padding: 28px 22px 26px;
+      text-align: center;
+      width: 100%;
+      max-width: 340px;
+      box-shadow: 0 24px 60px rgba(0,0,0,.45);
+    }
+    .auth-icon  { font-size: 2.8rem; line-height: 1; margin-bottom: 14px; }
+    .auth-title { font-size: 1.2rem; font-weight: 800; color: #1e293b; letter-spacing: -.02em; margin-bottom: 5px; }
+    .auth-sub   { font-size: .85rem; color: #64748b; margin-bottom: 24px; }
+
+    .auth-input {
+      width: 100%;
+      padding: 13px 16px;
+      font-size: 1.6rem;
+      font-family: inherit;
+      font-weight: 700;
+      letter-spacing: .5em;
+      text-align: center;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      outline: none;
+      color: #1e293b;
+      transition: border-color .15s;
+      margin-bottom: 12px;
+      display: block;
+    }
+    /* 인증번호 비활성화 - 추후 재활성화 가능 */
+    #authInput { display: none; }
+    .auth-input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+
+    .auth-btn {
+      width: 100%;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: inherit;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background .14s, transform .1s;
+      box-shadow: 0 4px 14px rgba(37,99,235,.35);
+    }
+    .auth-btn:hover  { background: #1d4ed8; }
+    .auth-btn:active { transform: scale(.98); }
+
+    /* ── 매장 선택 체크박스 그리드 (auth overlay 내부) ── */
+    .auth-store-groups    { margin-bottom: 14px; text-align: left; }
+    .auth-store-group + .auth-store-group { margin-top: 11px; }
+
+    .auth-store-group-title {
+      font-size: .72rem;
+      font-weight: 700;
+      color: #64748b;
+      letter-spacing: .07em;
+      text-align: center;
+      padding-bottom: 5px;
+      border-bottom: 1.5px solid #e2e8f0;
+      margin-bottom: 7px;
+    }
+    .auth-store-cbgrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+    }
+    .auth-store-cbgrid .cb-label {
+      font-size: .78rem;
+      padding: 7px 8px;
+      gap: 6px;
+      border-radius: 7px;
+    }
+    .auth-store-cbgrid .cb-label input[type=checkbox] {
+      width: 15px;
+      height: 15px;
+      accent-color: #2563eb;
+    }
+
+    .auth-error {
+      margin-top: 13px;
+      font-size: .84rem;
+      color: #be123c;
+      font-weight: 600;
+      min-height: 1.3em;
+      transition: opacity .2s;
+    }
+
+    .store-area {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .store-badge {
+      display: inline-block;
+      font-size: .8rem;
+      font-weight: 600;
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.32);
+      border-radius: 20px;
+      padding: 4px 14px;
+      color: rgba(255,255,255,.92);
+    }
+    .btn-back {
+      font-size: .75rem;
+      font-weight: 600;
+      font-family: inherit;
+      background: rgba(255,255,255,.1);
+      color: rgba(255,255,255,.75);
+      border: 1px solid rgba(255,255,255,.28);
+      border-radius: 20px;
+      padding: 4px 12px;
+      cursor: pointer;
+      transition: background .14s, color .14s;
+      line-height: 1.5;
+    }
+    .btn-back:hover { background: rgba(255,255,255,.22); color: #fff; }
+    body.mobile-preview .store-area  { margin-top: 7px; gap: 6px; }
+    body.mobile-preview .store-badge { font-size: .75rem; padding: 3px 11px; }
+    body.mobile-preview .btn-back    { font-size: .72rem; padding: 3px 10px; }
+
+    /* ── F&Q 진입 버튼 ── */
+    .faq-entry-area { margin-top: 12px; text-align: center; }
+    .btn-faq-entry {
+      font-size: .85rem;
+      font-weight: 700;
+      font-family: inherit;
+      background: white;
+      color: #1d4ed8;
+      border: none;
+      border-radius: 20px;
+      padding: 8px 18px;
+      cursor: pointer;
+      transition: background .14s, transform .1s;
+      box-shadow: 0 3px 10px rgba(0,0,0,.18);
+    }
+    .btn-faq-entry:hover  { background: #eff6ff; }
+    .btn-faq-entry:active { transform: scale(.98); }
+    body.mobile-preview .faq-entry-area { margin-top: 8px; }
+    body.mobile-preview .btn-faq-entry  { font-size: .78rem; padding: 6px 14px; }
+
+    /* ── F&Q 전체화면 뷰 ── */
+    #faqOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 900;
+      background: #eef2f7;
+      overflow-y: auto;
+    }
+    #faqOverlay.hidden { display: none; }
+
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .faq-question-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      white-space: pre-line;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: .95rem;
+      font-weight: 600;
+      font-family: inherit;
+      color: #1e293b;
+      cursor: pointer;
+      transition: border-color .12s, background .12s, transform .1s;
+    }
+    .faq-question-btn:hover  { border-color: #93c5fd; background: #f0f7ff; }
+    .faq-question-btn:active { transform: scale(.99); }
+    body.mobile-preview .faq-list         { gap: 8px; margin-top: 14px; padding: 0 14px; }
+    body.mobile-preview .faq-question-btn { padding: 12px 14px; font-size: .88rem; border-radius: 9px; }
+
+    /* ── F&Q 답변 모달 ── */
+    #faqAnswerModalOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(15,23,42,.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #faqAnswerModalOverlay.hidden { display: none; }
+    .faq-answer-modal-box { max-width: 480px; }
+    .faq-answer-modal-box .feedback-modal-title { word-break: keep-all; overflow-wrap: break-word; }
+    .faq-answer-modal-body {
+      overflow-y: auto;
+      background: white;
+      padding: 20px 18px;
+      font-size: .92rem;
+      color: #334155;
+      line-height: 1.7;
+    }
+    body.mobile-preview .faq-answer-modal-box  { max-width: 320px; }
+    body.mobile-preview .faq-answer-modal-body { padding: 16px 14px; font-size: .85rem; }
+
+    /* 답변 내 평문 문단 (좌측 정렬) */
+    .faq-answer-text { text-align: left; word-break: keep-all; overflow-wrap: break-word; }
+    .faq-answer-modal-body > * + * { margin-top: 14px; }
+
+    /* 답변 내 ①②③ 순서 단계 (중앙 정렬, 결제순서처럼 세로로 흐름) */
+    .faq-answer-steps {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .faq-step {
+      background: #eff6ff;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 20px;
+      padding: 8px 18px;
+      font-size: .88rem;
+      font-weight: 700;
+      color: #1d4ed8;
+      text-align: center;
+      max-width: 100%;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+    }
+    .faq-step-arrow {
+      color: #94a3b8;
+      font-weight: 700;
+      font-size: 1rem;
+      line-height: 1;
+    }
+    body.mobile-preview .faq-step { font-size: .82rem; padding: 7px 15px; }
+
+    /* ── 의견 보내기 구글폼 모달 ── */
+    #feedbackModalOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(15,23,42,.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #feedbackModalOverlay.hidden { display: none; }
+
+    .feedback-modal-box {
+      background: white;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 85vh;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0,0,0,.45);
+      display: flex;
+      flex-direction: column;
+    }
+    .feedback-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+      color: white;
+      flex-shrink: 0;
+    }
+    .feedback-modal-title { font-size: 1rem; font-weight: 700; }
+    .feedback-modal-close {
+      width: 28px; height: 28px;
+      font-size: .9rem;
+      font-family: inherit;
+      background: rgba(255,255,255,.15);
+      color: white;
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 20px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+      transition: background .14s;
+      flex-shrink: 0;
+    }
+    .feedback-modal-close:hover { background: rgba(255,255,255,.3); }
+    .feedback-modal-body { flex: 1; overflow: hidden; background: #f8fafc; }
+    .feedback-modal-body iframe {
+      width: 100%; height: 100%; min-height: 62vh;
+      border: none; display: block;
+    }
+    body.mobile-preview .feedback-modal-box { max-width: 320px; }
+    body.mobile-preview .feedback-modal-body iframe { min-height: 56vh; }
+
+    /* ── 결제 순서 안내 모달 ── */
+    #paymentOrderModalOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(15,23,42,.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #paymentOrderModalOverlay.hidden { display: none; }
+    .payment-order-modal-box { max-width: 560px; }
+    .payment-order-modal-body {
+      overflow-y: auto;
+      background: white;
+      padding: 22px 20px;
+    }
+    body.mobile-preview .payment-order-modal-box { max-width: 320px; }
+    body.mobile-preview .payment-order-modal-body { padding: 16px 14px; }
+
+    /* ── 결제 순서 흐름도 (po-flow) ── */
+    .po-flow {
+      display: flex;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 14px 10px;
+    }
+    .po-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 9px;
+      max-width: 260px;
+    }
+    .po-stage-badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 9px 20px;
+      font-size: .95rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .po-stage-1 { background: #f5e896; color: #4a3a0a; }
+    .po-stage-2 { background: #bcdcea; color: #123a5e; }
+    .po-stage-3 { background: #dde6c4; color: #3d4a1e; }
+    .po-stage-items {
+      font-size: .88rem;
+      color: #334155;
+      text-align: center;
+      line-height: 1.7;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+    }
+    .po-item-name {
+      white-space: nowrap;
+    }
+    .po-action-step {
+      font-style: italic;
+      color: #64748b;
+      white-space: nowrap;
+    }
+    .po-mini-arrow {
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: .85rem;
+      margin: 0 5px;
+      display: inline-block;
+    }
+    .po-step-mark {
+      color: #2563eb;
+      font-weight: 800;
+      font-size: 1rem;
+      margin-right: 2px;
+    }
+    .po-stage-arrow {
+      font-size: 24px;
+      line-height: 1;
+      color: #94a3b8;
+      flex-shrink: 0;
+      align-self: flex-start;
+      margin-top: 8px;
+    }
+    /* 모바일에서는 단계를 세로로 쌓고, 단계 전환 화살표도 아래 방향(↓)으로 회전 */
+    body.mobile-preview .po-flow {
+      flex-direction: column;
+      align-items: center;
+      gap: 10px 8px;
+    }
+    body.mobile-preview .po-stage       { max-width: 100%; gap: 7px; }
+    body.mobile-preview .po-stage-badge { font-size: .82rem; padding: 7px 15px; }
+    body.mobile-preview .po-stage-items { font-size: .78rem; line-height: 1.6; }
+    body.mobile-preview .po-mini-arrow  { font-size: .78rem; margin: 0 3px; }
+    body.mobile-preview .po-step-mark   { font-size: .88rem; }
+    body.mobile-preview .po-stage-arrow {
+      font-size: 20px;
+      align-self: center;
+      margin: 0;
+      transform: rotate(90deg);
+    }
+
+    /* ── 결과 화면 내 의견 남기기 섹션 ── */
+    .feedback-cta-card {
+      text-align: center;
+      background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+      border: 1.5px solid #bfdbfe;
+    }
+    .feedback-cta-text {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin-bottom: 14px;
+    }
+    .feedback-cta-btn { min-width: 160px; }
+    body.mobile-preview .feedback-cta-card { padding: 16px 14px; }
+    body.mobile-preview .feedback-cta-text { font-size: .92rem; margin-bottom: 11px; }
+
+    /* ── PC RESPONSIVE (only in PC view) ── */
+    @media (max-width: 640px) {
+      body:not(.mobile-preview) #appOuter,
+      body:not(.mobile-preview) .app-outer { padding: 12px 10px 50px; }
+      body:not(.mobile-preview) .app-header h1 { font-size: 1.55rem; }
+      body:not(.mobile-preview) .checkbox-grid { grid-template-columns: 1fr 1fr; }
+      body:not(.mobile-preview) .status-banner .s-title { font-size: 1.15rem; }
+      body:not(.mobile-preview) .btn { padding: 13px 28px; font-size: 1rem; }
+      body:not(.mobile-preview) .res-card { padding: 18px 16px; }
+      body:not(.mobile-preview) .cr-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 400px) {
+      body:not(.mobile-preview) .checkbox-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-7SNW3D6T5Z"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-7SNW3D6T5Z');
+  </script>
+</head>
+<body>
+
+<!-- ── 인증 오버레이 ── -->
+<div id="authOverlay">
+  <div class="auth-card">
+    <div class="auth-icon"></div>
+    <h2 class="auth-title">신세계 복합결제 도우미</h2>
+    <p class="auth-sub">현재 계신 매장을 선택하세요</p>
+    <div id="storeGrid" class="auth-store-groups"></div>
+    <input type="password" id="authInput" class="auth-input"
+           maxlength="4" inputmode="numeric" pattern="[0-9]*"
+           autocomplete="off" placeholder="·  ·  ·  ·">
+    <button class="auth-btn" onclick="submitAuth()">확&nbsp;&nbsp;인</button>
+    <p class="auth-error" id="authError"></p>
+  </div>
+</div>
+
+<div class="view-toggle-bar">
+  <span class="toggle-label">화면 모드</span>
+  <div class="toggle-btns">
+    <button class="view-btn active" id="btnPC"     onclick="switchView('pc')">🖥 PC</button>
+    <button class="view-btn"        id="btnMobile" onclick="switchView('mobile')">📱 모바일</button>
+  </div>
+</div>
+
+<div id="appOuter">
+  <div id="appShell">
+
+    <header class="app-header">
+      <h1>신세계 복합결제 도우미</h1>
+      <p>결제정책은 26.06.30자 기준이며</p>
+      <p>추후 결제정책 변경에 따라 결과가 다를 수 있습니다</p>
+      <p>특이사항 발생 시 점포 POS운영으로 연락 바랍니다</p>
+      <div id="storeArea" class="store-area" style="display:none">
+        <span id="storeBadge" class="store-badge"></span>
+        <button class="btn-back" onclick="goBack()">← 매장 변경</button>
+      </div>
+      <div class="faq-entry-area">
+        <button class="btn-faq-entry" onclick="openFaq()">❓ 자주 묻는 질문 (FAQ)</button>
+      </div>
+    </header>
+
+    <div class="selection-card" id="selectionCard"></div>
+
+    <p class="sel-summary" id="selSummary"><span class="sel-count" id="selCount">0</span>개 선택됨</p>
+
+    <div class="btn-row">
+      <button class="btn btn-reset"   onclick="doReset()">초기화</button>
+      <button class="btn btn-confirm" onclick="doConfirm()">확&nbsp;&nbsp;인</button>
+    </div>
+
+    <div id="resultArea"></div>
+
+  </div>
+</div>
+
+<!-- ── F&Q 전체화면 뷰 ── -->
+<div id="faqOverlay" class="hidden">
+  <div class="app-outer">
+    <div class="app-shell">
+      <header class="app-header">
+        <h1>[ 자주 묻는 질문 ]</h1>
+        <p>결제정책은 26.06.30자 기준이며</p>
+        <p>추후 결제정책 변경에 따라 결과가 다를 수 있습니다</p>
+        <p>특이사항 발생 시 점포 POS운영으로 연락 바랍니다</p>
+        <div class="store-area">
+          <button class="btn-back" onclick="closeFaq()">← 돌아가기</button>
+        </div>
+      </header>
+
+      <div class="faq-list" id="faqList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ── 의견 보내기 구글폼 모달 ── -->
+<div id="feedbackModalOverlay" class="hidden">
+  <div class="feedback-modal-box">
+    <div class="feedback-modal-header">
+      <span class="feedback-modal-title">💬 의견 보내기</span>
+      <button class="feedback-modal-close" onclick="closeFeedbackModal()" aria-label="닫기">✕</button>
+    </div>
+    <div class="feedback-modal-body">
+      <iframe id="feedbackModalIframe" title="의견 보내기" loading="lazy"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- ── 결제 순서 안내 모달 ── -->
+<div id="paymentOrderModalOverlay" class="hidden">
+  <div class="feedback-modal-box payment-order-modal-box">
+    <div class="feedback-modal-header">
+      <span class="feedback-modal-title">🔀 결제 순서 안내</span>
+      <button class="feedback-modal-close" onclick="closePaymentOrderModal()" aria-label="닫기">✕</button>
+    </div>
+    <div class="feedback-modal-body payment-order-modal-body" id="paymentOrderModalBody"></div>
+  </div>
+</div>
+
+<!-- ── F&Q 답변 모달 ── -->
+<div id="faqAnswerModalOverlay" class="hidden">
+  <div class="feedback-modal-box faq-answer-modal-box">
+    <div class="feedback-modal-header">
+      <span class="feedback-modal-title" id="faqAnswerModalTitle"></span>
+      <button class="feedback-modal-close" onclick="closeFaqAnswerModal()" aria-label="닫기">✕</button>
+    </div>
+    <div class="feedback-modal-body faq-answer-modal-body" id="faqAnswerModalBody"></div>
+  </div>
+</div>
+
+<script>
+const FEEDBACK_FORM_URL = "https://forms.gle/zBbGCjJYac8qm2iz5";
+
+/* ──────────────────────────────────────────────
+   의견 보내기 (구글폼 모달)
+────────────────────────────────────────────── */
+function buildFeedbackEmbedUrl(url) {
+  try {
+    const u = new URL(url);
+    u.searchParams.set('embedded', 'true');
+    return u.toString();
+  } catch (e) {
+    return url;
+  }
+}
+
+function openFeedbackModal() {
+  const iframe = document.getElementById('feedbackModalIframe');
+  if (!iframe.src) iframe.src = buildFeedbackEmbedUrl(FEEDBACK_FORM_URL);
+  document.getElementById('feedbackModalOverlay').classList.remove('hidden');
+}
+
+function closeFeedbackModal() {
+  document.getElementById('feedbackModalOverlay').classList.add('hidden');
+}
+
+/* ──────────────────────────────────────────────
+   자주 묻는 질문 (F&Q)
+────────────────────────────────────────────── */
+function nlToBr(str) {
+  return escHtml(str).replace(/\n/g, '<br>');
+}
+
+/* 답변 텍스트를 줄 단위로 분석해, 평문 문단은 좌측 정렬 블록으로,
+   ①②③... 순서 단계는 중앙 정렬 세로 흐름 블록으로 나눠 렌더링 */
+const FAQ_STEP_MARK_RE = /^[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮]/;
+const FAQ_ARROW_RE = /^[↓→]$/;
+
+function formatFaqAnswer(answer) {
+  const lines = answer.split('\n');
+  const blocks = [];
+  let cur = null;
+
+  lines.forEach(rawLine => {
+    const line = rawLine.trim();
+    if (FAQ_ARROW_RE.test(line)) return; // 화살표는 단계 사이 시각적 연결로 CSS가 표현
+    if (line === '') { cur = null; return; }
+
+    if (FAQ_STEP_MARK_RE.test(line)) {
+      if (!cur || cur.type !== 'steps') { cur = { type: 'steps', lines: [] }; blocks.push(cur); }
+    } else {
+      if (!cur || cur.type !== 'text') { cur = { type: 'text', lines: [] }; blocks.push(cur); }
+    }
+    cur.lines.push(line);
+  });
+
+  return blocks.map(b => {
+    if (b.type === 'steps') {
+      return `<div class="faq-answer-steps">${
+        b.lines.map((l, i) =>
+          `<div class="faq-step">${escHtml(l)}</div>` +
+          (i < b.lines.length - 1 ? '<div class="faq-step-arrow">↓</div>' : '')
+        ).join('')
+      }</div>`;
+    }
+    return `<p class="faq-answer-text">${b.lines.map(escHtml).join('<br>')}</p>`;
+  }).join('');
+}
+
+function renderFaqList() {
+  const list = document.getElementById('faqList');
+  list.innerHTML = DATA.faqList.map(faq => `
+    <button type="button" class="faq-question-btn" onclick="openFaqAnswerModal('${faq.id}')">${nlToBr(faq.question)}</button>`
+  ).join('');
+}
+
+function openFaq() {
+  document.getElementById('appOuter').style.display = 'none';
+  document.getElementById('faqOverlay').classList.remove('hidden');
+}
+
+function closeFaq() {
+  document.getElementById('faqOverlay').classList.add('hidden');
+  document.getElementById('appOuter').style.display = '';
+}
+
+function openFaqAnswerModal(id) {
+  const faq = DATA.faqList.find(f => f.id === id);
+  if (!faq) return;
+  document.getElementById('faqAnswerModalTitle').innerHTML = nlToBr(faq.question);
+  document.getElementById('faqAnswerModalBody').innerHTML = formatFaqAnswer(faq.answer);
+  document.getElementById('faqAnswerModalOverlay').classList.remove('hidden');
+}
+
+function closeFaqAnswerModal() {
+  document.getElementById('faqAnswerModalOverlay').classList.add('hidden');
+}
+
+/* ──────────────────────────────────────────────
+   결제 순서 안내 모달 (대안 조합 클릭 시)
+────────────────────────────────────────────── */
+function showPaymentOrderModal(ids) {
+  const flowHtml = renderPaymentOrderFlow(ids);
+  document.getElementById('paymentOrderModalBody').innerHTML =
+    flowHtml || '<p style="padding:20px;color:#64748b;">표시할 결제 순서 정보가 없습니다.</p>';
+  document.getElementById('paymentOrderModalOverlay').classList.remove('hidden');
+}
+
+function closePaymentOrderModal() {
+  document.getElementById('paymentOrderModalOverlay').classList.add('hidden');
+}
+
+/* ──────────────────────────────────────────────
+   데이터
+────────────────────────────────────────────── */
+const DATA = {
+  "items": [
+    { "id": "coupon1", "name": "신백리워드 쿠폰",    "category": "쿠폰", "note": null },
+    { "id": "coupon4", "name": "제휴카드 쿠폰",          "category": "쿠폰", "note": null },
+    { "id": "coupon_etc", "name": "기타 (QR/지류)", "category": "쿠폰", "note": "서비스권으로 처리됩니다, 사용증빙으로 전달할 별도 영수증을 출력해서 보관해주세요" },
+    { "id": "pay8",  "name": "신백리워드",          "category": "포인트", "note": null, "cashReceiptEligible": false },
+    { "id": "pay9",  "name": "신세계포인트",        "category": "포인트", "note": null, "cashReceiptEligible": false },
+    { "id": "pay2",  "name": "신세계 제휴카드",       "category": "결제수단", "subCategory": "카드", "note": null, "cashReceiptEligible": false },
+    { "id": "pay3",  "name": "일반카드",            "category": "결제수단", "subCategory": "카드", "note": null, "cashReceiptEligible": false },
+    { "id": "pay1",  "name": "현금",               "category": "결제수단", "subCategory": "현금류", "note": null, "cashReceiptEligible": true },
+    { "id": "pay13", "name": "외화",               "category": "결제수단", "subCategory": "현금류", "note": null, "cashReceiptEligible": true },
+    { "id": "pay12", "name": "수표",               "category": "결제수단", "subCategory": "현금류", "note": null, "cashReceiptEligible": true },
+    { "id": "pay4",  "name": "일반 상품권",         "category": "결제수단", "subCategory": "상품권/머니", "note": null, "cashReceiptEligible": true },
+    { "id": "pay5",  "name": "증정 상품권 (자사)",  "category": "결제수단", "subCategory": "상품권/머니", "note": null, "cashReceiptEligible": false },
+    { "id": "pay6",  "name": "증정 상품권 (타사)",  "category": "결제수단", "subCategory": "상품권/머니", "note": null, "cashReceiptEligible": true },
+    { "id": "pay7",  "name": "SSG머니, 카카오머니",            "category": "결제수단", "subCategory": "상품권/머니", "note": null, "cashReceiptEligible": true },
+    { "id": "pay10", "name": "국민관광/스포츠/화장품",      "category": "결제수단", "subCategory": "상품권/머니", "note": null, "cashReceiptEligible": true },
+    { "id": "pay11", "name": "임대상품권",           "category": "결제수단", "subCategory": "상품권/머니", "note": null, "cashReceiptEligible": true },
+    { "id": "sale1", "name": "S 세일리지 (VIP)",            "category": "세일리지/에누리", "note": null },
+    { "id": "sale2", "name": "프로모션 세일리지",    "category": "세일리지/에누리", "note": null },
+    { "id": "sale3", "name": "유니버스 클럽",         "category": "세일리지/에누리", "note": null },
+    { "id": "sale4", "name": "직원 할인",             "category": "세일리지/에누리", "note": null },
+    { "id": "sale5", "name": "수기 에누리",           "category": "세일리지/에누리", "note": null }
+  ],
+  "conflictPairs": [
+    ["coupon1","coupon_etc"],["coupon1","pay1"],["coupon1","pay3"],
+    ["coupon1","pay4"],["coupon1","pay5"],["coupon1","pay6"],["coupon1","pay7"],
+    ["coupon1","pay8"],["coupon1","pay9"],["coupon1","pay10"],
+    ["coupon_etc","coupon4"],["coupon_etc","sale2"],["coupon_etc","sale5"],
+    ["coupon4","pay1"],["coupon4","pay3"],["coupon4","pay4"],["coupon4","pay5"],
+    ["coupon4","pay6"],["coupon4","pay7"],["coupon4","pay8"],["coupon4","pay9"],["coupon4","pay10"],
+    ["coupon4","sale1"],["coupon4","sale2"],["coupon4","sale3"],["coupon4","sale4"],["coupon4","sale5"],
+    ["pay1","sale2"],
+    ["pay3","sale1"],["pay3","sale2"],
+    ["pay4","sale2"],
+    ["pay5","sale2"],["pay5","sale3"],["pay5","sale5"],
+    ["pay6","sale2"],["pay6","sale5"],
+    ["pay7","sale2"],
+    ["pay8","sale2"],
+    ["pay9","sale2"],["pay9","sale5"],
+    ["pay10","sale2"],["pay10","sale4"],["pay10","sale5"],
+    ["sale1","sale2"],["sale1","sale3"],["sale1","sale4"],
+    ["sale2","sale3"],["sale2","sale4"],
+    ["sale3","sale4"],
+    ["sale4","sale5"],
+    ["pay11","coupon1"],["pay11","coupon4"],["pay11","sale2"],["pay11","sale4"],["pay11","sale5"],
+    ["pay12","coupon1"],["pay12","coupon4"],["pay12","sale2"],
+    ["pay13","coupon1"],["pay13","coupon4"],["pay13","sale2"]
+  ],
+  "accessCode": "1156",
+  "sameItemAlwaysConflicts": true,
+  "globalNotes": [
+    "현금류 · 머니류(SSG,카카오) · 증정 상품권(자사)를 제외한 상품권으로 결제한 금액의 합계까지만 발급 가능합니다."
+  ],
+  "cautionRules": [
+    { "items": ["coupon1", "coupon4"], "note": "[결제 순서] 결제가격 입력 → 제휴카드를 꽂고, 제휴카드 쿠폰 적용 → 할부 안내 창에서 '취소' 선택 → 리워드 쿠폰 적용" },
+    { "items": ["pay11"], "note": "임대상품권 오류 발생 시 영업담당을 통해 '유사상품권 수취계약'이 되어있는지 확인 바랍니다." },
+    { "items": ["pay12"], "note": "정액권 수표만 수령 가능합니다(10/50/100만원). 그외 권종은 고객님께서 직접 은행 방문하시어 현금으로 전환하신 뒤 내점바랍니다." },
+    { "items": ["coupon1"], "anyOf": ["sale1", "sale2", "sale3"], "note": "신백리워드 쿠폰 금액이 먼저 적용된 후 남은 금액에 대해 세일리지가 적용됩니다" },
+    { "items": ["sale1", "sale2"], "note": "세일리지는 현금 및 본인명의 제휴카드 결제 금액에 대해서만 적용됩니다." },
+    { "items": ["pay9"], "note": "전화번호를 통해 포인트 적립 후 SSGPAY로 결제 시 중복 적립으로 결제가 되지 않습니다. 전체 취소 후 전화번호 입력 없이 바로 SSGPAY로 결제 바랍니다." }
+  ],
+  "failureHints": [
+    { "item": "coupon1", "note": "전액 본인 명의 제휴카드 결제 시 사용가능." },
+    { "item": "coupon4", "note": "전액 본인 명의 제휴카드 결제 시 사용가능." },
+    { "item": "sale2", "note": "전액 본인 명의 제휴카드 결제 시 사용가능." }
+  ],
+  "paymentOrderStageLabels": {
+    "1": "등록 탭",
+    "2": "적립/선언 탭",
+    "3": "결제 탭"
+  },
+  "paymentOrder": [
+    { "id": "sale5", "stage": 1, "priority": 1 },
+
+    { "id": "sale4", "stage": 2, "priority": 1 },
+    { "id": "coupon4", "stage": 2, "priority": 2 },
+    { "id": "sale1", "stage": 2, "priority": 3 },
+    { "id": "sale2", "stage": 2, "priority": 3 },
+    { "id": "sale3", "stage": 2, "priority": 3 },
+    { "id": "pay9", "stage": 2, "priority": 4 },
+    { "id": "pay8", "stage": 2, "priority": 5 },
+    { "id": "coupon1", "stage": 2, "priority": 6 },
+    { "id": "pay7", "stage": 2, "priority": 7 },
+
+    { "id": "coupon_etc", "stage": 3, "priority": 1 },
+    { "id": "pay4", "stage": 3, "priority": 2 },
+    { "id": "pay5", "stage": 3, "priority": 2 },
+    { "id": "pay6", "stage": 3, "priority": 2 },
+    { "id": "pay10", "stage": 3, "priority": 2 },
+    { "id": "pay11", "stage": 3, "priority": 2 },
+    { "id": "pay1", "stage": 3, "priority": 3 },
+    { "id": "pay13", "stage": 3, "priority": 3 },
+    { "id": "pay12", "stage": 3, "priority": 3 },
+    { "id": "pay2", "stage": 3, "priority": 4 },
+    { "id": "pay3", "stage": 3, "priority": 4 }
+  ],
+  "storeGroups": {
+    "별도법인": ["대구점","광주점","Art&Science","천안아산점"],
+    "일반점포": ["강남점","본점","센텀시티점","사우스시티","타임스퀘어점","의정부점","하남점","김해점","마산점"]
+  },
+  "giftCardHintTemplate": {
+    "standalone": {
+      "own":   "신세계 {store}에서 발행된 증정상품권",
+      "other": "신세계 {store} 이외 점포 및 이마트에서 발행된 증정상품권"
+    },
+    "shinsegae": {
+      "own":   "신세계 대구점 / 광주점 / Art&Science / 천안아산점이 아닌 점포에서 발행된 증정상품권",
+      "other": "신세계 대구점 / 광주점 / Art&Science / 천안아산점 및 이마트에서 발행된 증정상품권"
+    },
+    "etc": "브랜드에서 발행된 상품권 (ex : 금강상품권, LF상품권 外)"
+  },
+  "faqList": [
+    { "id": "faq1",
+      "question": "신백리워드 입력 후 포스에서 취소가 안돼요",
+      "answer": "현재 신백리워드 사용시에는 결제 중 취소가 불가능합니다. 아래 방식대로 진행해주세요\n\n① 잔여금액 현금 처리 후 결제완료\n↓\n② 해당 영수증 취소\n↓\n③ 재결재" },
+    { "id": "faq2",
+      "question": "다른 전화번호로 포인트를 등록한 뒤\n제휴카드로 결제가 되지 않아요",
+      "answer": "전화번호와 카드에 심어진 신세계포인트 ID가 서로 다를 시 이중 적립으로 인식되어 결제가 진행되지 않습니다\n\n하나의 ID로만 적립진행 가능함을 안내 드린 뒤 전화번호 또는 포인트 ID 중 하나만 등록하여 결제 바랍니다." },
+    { "id": "faq3",
+      "question": "제휴카드 쿠폰과 신백리워드 쿠폰이\n같이 사용이 안 돼요",
+      "answer": "제휴카드 쿠폰을 먼저 적용한 후 리워드 쿠폰 적용이 가능합니다. 아래 방식대로 진행해 주세요\n\n①제휴카드 꽂은 후 쿠폰 적용\n↓\n② 카드를 뺀 후 팝업창에서 '포인트 적립' 선택\n↓\n③ 리워드 쿠폰 바코드 스캔 후 적용\n↓\n④ 제휴카드 다시 꽂은 후 결제" },
+    { "id": "faq4",
+      "question": "포인트 적립 후 SSG페이 결제가 안돼요",
+      "answer": "신세계포인트 또는 신백리워드 바코드를 인식한 뒤 결제시\n\n시스템 상 중복 적립으로 처리되어 결제가 진행되지 않습니다\n\n신세계포인트 또는 신백리워드 바코드를 입력하지 않은 상태에서 결제 바랍니다" },
+    { "id": "faq5",
+      "question": "저희 브랜드가 세일리지, 임직원 할인이\n가능한지 알 수 있나요?",
+      "answer": "영업담당자, 또는 POS운영에 연락하여 확인할 수 있습니다." }
+  ]
+};
+
+/* ──────────────────────────────────────────────
+   기초 데이터 구조
+────────────────────────────────────────────── */
+let currentStore = null;
+
+const itemById = Object.fromEntries(DATA.items.map(i => [i.id, i]));
+
+const conflictSet = new Set();
+DATA.conflictPairs.forEach(([a, b]) => {
+  conflictSet.add(a + ',' + b);
+  conflictSet.add(b + ',' + a);
+});
+
+const CAT_ICONS = { '쿠폰': '🎫', '포인트': '⭐', '결제수단': '💳', '세일리지/에누리': '🏷️' };
+const CAT_SLUG  = { '쿠폰': 'coupon', '포인트': 'point', '결제수단': 'pay', '세일리지/에누리': 'sale' };
+const categories = [...new Set(DATA.items.map(i => i.category))];
+
+/* ──────────────────────────────────────────────
+   결제 순서 안내 (등록 → 적립/선언 → 결제 흐름)
+────────────────────────────────────────────── */
+const PAYMENT_ORDER_STAGE_LABELS = DATA.paymentOrderStageLabels;
+const paymentOrderById = Object.fromEntries(DATA.paymentOrder.map(o => [o.id, o]));
+const paymentOrderItemIndex = Object.fromEntries(DATA.items.map((it, idx) => [it.id, idx]));
+
+/* ──────────────────────────────────────────────
+   증정상품권 안내 문구 (매장별 동적 생성)
+────────────────────────────────────────────── */
+function getGiftCardHints() {
+  if (!currentStore) return [];
+  const groups = DATA.storeGroups;
+  const tmpl   = DATA.giftCardHintTemplate;
+  if (groups['별도법인'].includes(currentStore)) {
+    const t = tmpl.standalone;
+    return [
+      '※ 증정 상품권 (자사) : ' + t.own.replace('{store}', currentStore),
+      '※ 증정 상품권 (타사) : ' + t.other.replace('{store}', currentStore),
+      '※ 임대상품권 : ' + tmpl.etc
+    ];
+  }
+  if (groups['일반점포'].includes(currentStore)) {
+    const t = tmpl.shinsegae;
+    return [
+      '※ 증정 상품권 (자사) : ' + t.own,
+      '※ 증정 상품권 (타사) : ' + t.other,
+      '※ 임대상품권 : ' + tmpl.etc
+    ];
+  }
+  return [];
+}
+
+/* ──────────────────────────────────────────────
+   체크박스 렌더링
+────────────────────────────────────────────── */
+const SUBCAT_ORDER = ['카드', '현금류', '상품권/머니'];
+
+function renderItemBoxes(items) {
+  return items.map(item => `
+    <label class="cb-label" id="lbl-${item.id}">
+      <input type="checkbox" value="${item.id}" onchange="onCheck()">
+      ${escHtml(item.name)}
+    </label>`).join('');
+}
+
+function renderCheckboxes() {
+  const card = document.getElementById('selectionCard');
+  const hints = getGiftCardHints();
+  const hintsHtml = hints.length
+    ? `<div class="cat-hints">${hints.map(h => `<span class="cat-hint-line">${escHtml(h)}</span>`).join('')}</div>`
+    : '';
+  card.innerHTML = categories.map(cat => {
+    const items = DATA.items.filter(i => i.category === cat);
+    const icon  = CAT_ICONS[cat] || '📋';
+    const hasSub = items.some(i => i.subCategory);
+    let bodyHtml;
+    if (hasSub) {
+      const subCats = [...new Set(items.map(i => i.subCategory || ''))]
+        .sort((a, b) => SUBCAT_ORDER.indexOf(a) - SUBCAT_ORDER.indexOf(b));
+      bodyHtml = subCats.map(sub => `
+        <div class="cat-subblock">
+          <div class="cat-subheader">${escHtml(sub)}</div>
+          <div class="checkbox-grid">${renderItemBoxes(items.filter(i => (i.subCategory || '') === sub))}</div>
+          ${cat === '결제수단' && sub === '상품권/머니' ? hintsHtml : ''}
+        </div>`).join('');
+    } else {
+      bodyHtml = `<div class="checkbox-grid">${renderItemBoxes(items)}</div>`;
+    }
+    return `<div class="cat-block cat-${CAT_SLUG[cat] || 'default'}">
+      <div class="cat-header"><span>${icon}</span> ${escHtml(cat)}</div>
+      ${bodyHtml}
+    </div>`;
+  }).join('');
+}
+
+function onCheck() {
+  const n = getSelected().length;
+  document.getElementById('selCount').textContent = n;
+  document.querySelectorAll('#selectionCard .cb-label').forEach(lbl => {
+    lbl.classList.toggle('checked', lbl.querySelector('input').checked);
+  });
+  document.getElementById('resultArea').innerHTML = '';
+}
+
+function getSelected() {
+  return [...document.querySelectorAll('#selectionCard input[type=checkbox]:checked')].map(c => c.value);
+}
+
+/* ──────────────────────────────────────────────
+   초기화 버튼
+────────────────────────────────────────────── */
+function doReset() {
+  document.querySelectorAll('#selectionCard input[type=checkbox]').forEach(c => c.checked = false);
+  document.querySelectorAll('#selectionCard .cb-label').forEach(l => l.classList.remove('checked'));
+  document.getElementById('selCount').textContent = '0';
+  document.getElementById('resultArea').innerHTML = '';
+}
+
+/* ──────────────────────────────────────────────
+   충돌 감지
+────────────────────────────────────────────── */
+function conflicts(a, b) { return conflictSet.has(a + ',' + b); }
+
+function findConflicts(ids) {
+  const result = [];
+  for (let i = 0; i < ids.length; i++)
+    for (let j = i + 1; j < ids.length; j++)
+      if (conflicts(ids[i], ids[j])) result.push([ids[i], ids[j]]);
+  return result;
+}
+
+function isCompatible(ids) {
+  for (let i = 0; i < ids.length; i++)
+    for (let j = i + 1; j < ids.length; j++)
+      if (conflicts(ids[i], ids[j])) return false;
+  return true;
+}
+
+/* ──────────────────────────────────────────────
+   최대 크기 호환 부분조합 탐색
+────────────────────────────────────────────── */
+function combinations(arr, k) {
+  const result = [];
+  function bt(start, cur) {
+    if (cur.length === k) { result.push([...cur]); return; }
+    const need = k - cur.length;
+    for (let i = start; i <= arr.length - need; i++) {
+      cur.push(arr[i]); bt(i + 1, cur); cur.pop();
+    }
+  }
+  bt(0, []);
+  return result;
+}
+
+function findBestCompatibleSets(selected) {
+  for (let size = selected.length; size >= 1; size--) {
+    const valid = combinations(selected, size).filter(isCompatible);
+    if (valid.length) return valid;
+  }
+  return [];
+}
+
+function findBestCompatibleSetsWithCategory(selected, mustCategory) {
+  const hasCategory = selected.some(id => itemById[id] && itemById[id].category === mustCategory);
+  if (!hasCategory) return [];
+  for (let size = selected.length; size >= 1; size--) {
+    const valid = combinations(selected, size)
+      .filter(isCompatible)
+      .filter(set => set.some(id => itemById[id].category === mustCategory));
+    if (valid.length) return valid;
+  }
+  return [];
+}
+
+function findBestPurePaymentSets(selected) {
+  const payOnly = selected.filter(id => itemById[id] && itemById[id].category === '결제수단');
+  for (let size = payOnly.length; size >= 1; size--) {
+    const valid = combinations(payOnly, size).filter(isCompatible);
+    if (valid.length) return valid;
+  }
+  return [];
+}
+
+function setsEqual(a, b) {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort(), sb = [...b].sort();
+  return sa.every((v, i) => v === sb[i]);
+}
+
+/* ──────────────────────────────────────────────
+   결제 순서 흐름도 렌더링
+────────────────────────────────────────────── */
+const PAYMENT_ORDER_STEP_MARKS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
+
+/* 결제수단이 아닌 사전 동작 안내 (번호 없이 해당 항목 직전에 삽입) */
+function computePaymentOrderActionSteps(selectedIds) {
+  const actions = new Map();
+  const has = (id) => selectedIds.includes(id);
+
+  if (has('coupon4')) {
+    actions.set('coupon4', '제휴카드 리더기에 꽂기');
+  }
+
+  // 신세계포인트 / S 세일리지 (VIP) / 프로모션 세일리지 중 선택된 것 중 우선순위(priority 오름차순)가 가장 높은(빠른) 항목
+  const pointAnchor = ['pay9', 'sale1', 'sale2']
+    .filter(has)
+    .sort((a, b) => paymentOrderById[a].priority - paymentOrderById[b].priority)[0] || null;
+
+  const has8 = has('pay8'), hasC1 = has('coupon1');
+  if (has8 || hasC1) {
+    if (pointAnchor) {
+      actions.set(pointAnchor, '신백리워드 바코드 센싱');
+    } else if (has8) {
+      actions.set('pay8', '신백리워드 바코드 센싱');
+    } else {
+      actions.set('coupon1', '신백리워드 바코드 센싱');
+    }
+  } else if (pointAnchor) {
+    actions.set(pointAnchor, '전화번호 입력 또는 포인트 바코드 센싱');
+  }
+
+  if (has('sale4')) {
+    actions.set('sale4', '사원증 리더기 센싱');
+  }
+
+  return actions;
+}
+
+function renderPaymentOrderFlow(selectedIds) {
+  let stepCounter = 0;
+  const actionSteps = computePaymentOrderActionSteps(selectedIds);
+
+  const stageBlocks = [1, 2, 3].map(stage => {
+    const stageItems = selectedIds.filter(id => paymentOrderById[id] && paymentOrderById[id].stage === stage);
+    if (stageItems.length === 0) return null;
+
+    const byPriority = new Map();
+    stageItems.forEach(id => {
+      const p = paymentOrderById[id].priority;
+      if (!byPriority.has(p)) byPriority.set(p, []);
+      byPriority.get(p).push(id);
+    });
+
+    const priorityText = [...byPriority.keys()]
+      .sort((a, b) => a - b)
+      .map(p => {
+        const idsInGroup = byPriority.get(p)
+          .sort((a, b) => paymentOrderItemIndex[a] - paymentOrderItemIndex[b]);
+
+        const actionLabel = idsInGroup.map(id => actionSteps.get(id)).find(Boolean);
+        const actionHtml = actionLabel
+          ? `<span class="po-action-step">${escHtml(actionLabel)}</span><span class="po-mini-arrow">→</span>`
+          : '';
+
+        const mark = PAYMENT_ORDER_STEP_MARKS[stepCounter] || (stepCounter + 1) + '.';
+        stepCounter++;
+        const names = idsInGroup
+          .map(id => `<span class="po-item-name">${escHtml(itemById[id].name)}</span>`)
+          .join(', ');
+        return `${actionHtml}<span class="po-step-mark">${mark}</span>&nbsp;${names}`;
+      })
+      .join('<span class="po-mini-arrow">→</span>');
+
+    return `<div class="po-stage">
+      <span class="po-stage-badge po-stage-${stage}">${escHtml(PAYMENT_ORDER_STAGE_LABELS[stage])}</span>
+      <div class="po-stage-items">${priorityText}</div>
+    </div>`;
+  }).filter(Boolean);
+
+  if (stageBlocks.length === 0) return '';
+
+  return `<div class="po-flow">${stageBlocks.join('<span class="po-stage-arrow">→</span>')}</div>`;
+}
+
+/* ──────────────────────────────────────────────
+   확인 버튼
+────────────────────────────────────────────── */
+function doConfirm() {
+  const selected = getSelected();
+  const hasPayMethod = selected.some(id => itemById[id] && itemById[id].category === '결제수단');
+  if (!hasPayMethod) { showToast('최소 하나 이상의 결제수단을 선택해주세요.'); return; }
+  if (selected.length < 2) { showToast('2개 이상 항목을 선택해 주세요.'); return; }
+
+  const cfList = findConflicts(selected);
+  let html = '';
+
+  const matchedHints = cfList.length > 0
+    ? DATA.failureHints.filter(h => cfList.some(pair => pair.includes(h.item)))
+    : [];
+  const noted = selected.map(id => itemById[id]).filter(i => i.note);
+
+  let hintHtml = '';
+  if (matchedHints.length > 0) {
+    hintHtml += `<div class="res-card">
+      <div class="res-card-title">❌ 결제불가 사유</div>
+      <div class="note-list">`;
+    matchedHints.forEach(h => {
+      const hintItem = itemById[h.item];
+      const label = hintItem ? hintItem.name : h.item;
+      hintHtml += `<div class="note-row">
+        <span class="note-name">[${escHtml(label)}]</span>
+        <span class="note-text">${escHtml(h.note)}</span>
+      </div>`;
+    });
+    hintHtml += `</div></div>`;
+  }
+
+  let noticeHtml = '';
+  if (noted.length > 0) {
+    noticeHtml += `<div class="res-card">
+      <div class="res-card-title">📋 유의사항</div>
+      <div class="note-list">`;
+    noted.forEach(item => {
+      noticeHtml += `<div class="note-row">
+        <span class="note-name">[${escHtml(item.name)}]</span>
+        <span class="note-text">${escHtml(item.note)}</span>
+      </div>`;
+    });
+    noticeHtml += `</div></div>`;
+  }
+
+  if (cfList.length === 0) {
+    const matchedCautions = DATA.cautionRules.filter(rule =>
+      rule.items.every(id => selected.includes(id)) &&
+      (!rule.anyOf || rule.anyOf.some(id => selected.includes(id)))
+    );
+
+    const giftCardSaleNote = "현금 및 신세계 제휴카드로 결제한 금액에 대해서만 세일리지/에누리 적용됩니다.";
+    const hasSale1VIP = selected.includes('sale1');
+    const hasGiftCardOrMoney = selected.some(id => itemById[id] && itemById[id].subCategory === '상품권/머니');
+    if (hasSale1VIP && hasGiftCardOrMoney && !matchedCautions.some(rule => rule.note === giftCardSaleNote)) {
+      matchedCautions.push({ items: ['sale1'], note: giftCardSaleNote });
+    }
+
+    if (matchedCautions.length > 0) {
+      html += `<div class="status-banner banner-caution">
+        <div class="s-title">결제 가능 (유의사항 있음)</div>
+      </div>`;
+      html += `<div class="res-card">
+        <div class="res-card-title">⚠️ 유의사항</div>
+        <div class="note-list">`;
+      matchedCautions.forEach(rule => {
+        html += `<div class="note-row"><span class="note-text">${escHtml(rule.note)}</span></div>`;
+      });
+      html += `</div></div>`;
+    } else {
+      html += `<div class="status-banner banner-ok">
+        <div class="s-title">결제 가능</div>
+      </div>`;
+    }
+
+    const flowHtml = renderPaymentOrderFlow(selected);
+    if (flowHtml) {
+      html += `<div class="res-card">
+        <div class="res-card-title">🔀 결제 순서</div>
+        ${flowHtml}
+      </div>`;
+    }
+
+    html += noticeHtml;
+  } else {
+    html += `<div class="status-banner banner-fail">
+      <div class="s-title">결제 불가</div>
+    </div>`;
+
+    const conflictCount = {};
+    cfList.forEach(([a, b]) => {
+      conflictCount[a] = (conflictCount[a] || 0) + 1;
+      conflictCount[b] = (conflictCount[b] || 0) + 1;
+    });
+    const conflictGroups = new Map();
+    cfList.forEach(([a, b]) => {
+      const key = (conflictCount[b] || 0) > (conflictCount[a] || 0) ? b : a;
+      const val = key === a ? b : a;
+      if (!conflictGroups.has(key)) conflictGroups.set(key, []);
+      conflictGroups.get(key).push(val);
+    });
+
+    html += hintHtml;
+    html += `<div class="res-card">
+      <div class="res-card-title">⚡ 충돌 항목 (${conflictGroups.size}건)</div>
+      <div class="conflict-list">`;
+    conflictGroups.forEach((opponents, item) => {
+      html += `<div class="conflict-row">
+        <span class="cf-badge">✕</span>
+        <span>${escHtml(itemById[item].name)}</span>
+        <span class="cf-vs">↔</span>
+        <span>${opponents.map(id => escHtml(itemById[id].name)).join(', ')}</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+    html += noticeHtml;
+
+    let alts = findBestPurePaymentSets(selected);
+    alts = alts.filter(combo => combo.some(id => itemById[id] && itemById[id].category === '결제수단'));
+    const couponAlts = findBestCompatibleSetsWithCategory(selected, '쿠폰');
+    let couponNew  = couponAlts.filter(combo => combo.some(id => itemById[id] && itemById[id].category === '결제수단'));
+    const saleAlts    = findBestCompatibleSetsWithCategory(selected, '세일리지/에누리');
+    let saleDeduped = saleAlts.filter(ss => !couponAlts.some(cs => setsEqual(ss, cs)));
+    saleDeduped = saleDeduped.filter(combo => combo.some(id => itemById[id] && itemById[id].category === '결제수단'));
+
+    if (alts.length > 0 || couponNew.length > 0 || saleDeduped.length > 0) {
+      html += `<div class="res-card">`;
+      html += `<div class="alt-intro">각 결제조합 클릭 시 결제 순서를 볼 수 있습니다</div>`;
+
+      if (couponNew.length > 0) {
+        const couponDisplay = couponNew.slice(0, 8);
+        html += `<div class="res-card-title" style="margin-top:18px">🎫 쿠폰 사용 가능 조합</div>
+          <div class="alt-list">`;
+        couponDisplay.forEach((alt) => {
+          html += `<div class="alt-item" onclick='showPaymentOrderModal(${JSON.stringify(alt).replace(/'/g, "&#39;")})'>
+            <div class="tag-row">${alt.map(id => `<span class="tag">${escHtml(itemById[id].name)}</span>`).join('')}</div>
+          </div>`;
+        });
+        if (couponNew.length > 8) html += `<div class="more-alts">… 외 ${couponNew.length - 8}개 조합 더 있음</div>`;
+        html += `</div>`;
+      }
+
+      if (saleDeduped.length > 0) {
+        const saleDisplay = saleDeduped.slice(0, 8);
+        html += `<div class="res-card-title" style="margin-top:18px">🏷️ 세일리지/에누리 사용 가능 조합</div>
+          <div class="alt-list">`;
+        saleDisplay.forEach((alt) => {
+          html += `<div class="alt-item" onclick='showPaymentOrderModal(${JSON.stringify(alt).replace(/'/g, "&#39;")})'>
+            <div class="tag-row">${alt.map(id => `<span class="tag">${escHtml(itemById[id].name)}</span>`).join('')}</div>
+          </div>`;
+        });
+        if (saleDeduped.length > 8) html += `<div class="more-alts">… 외 ${saleDeduped.length - 8}개 조합 더 있음</div>`;
+        html += `</div>`;
+      }
+
+
+      if (alts.length > 0) {
+        const maxSize = alts[0].length;
+        const display = alts.slice(0, 8);
+        html += `<div class="res-card-title" style="margin-top:18px">✨ 서로 사용 가능한 조합</div>
+          <div class="alt-list">`;
+        display.forEach((alt) => {
+          html += `<div class="alt-item" onclick='showPaymentOrderModal(${JSON.stringify(alt).replace(/'/g, "&#39;")})'>
+            <div class="tag-row">${alt.map(id => `<span class="tag">${escHtml(itemById[id].name)}</span>`).join('')}</div>
+          </div>`;
+        });
+        if (alts.length > 8) html += `<div class="more-alts">… 외 ${alts.length - 8}개 조합 더 있음</div>`;
+        html += `</div>`;
+      }
+
+      html += `</div>`;
+    }
+
+  }
+
+  const payItems = selected.map(id => itemById[id]).filter(i => i.category === '결제수단');
+  if (cfList.length === 0 && payItems.length > 0) {
+    const eligible   = payItems.filter(i => i.cashReceiptEligible === true);
+    const ineligible = payItems.filter(i => i.cashReceiptEligible === false);
+    html += `<div class="res-card"><div class="res-card-title">🧾 현금영수증 발급 안내</div>`;
+
+    if (ineligible.length === 0 && eligible.length > 0) {
+      // 1) 전액 가능
+      html += `<div class="cr-status cr-ok">
+        <div class="cr-s-title">현금영수증 발급 가능</div>
+        <div class="cr-s-tags">${eligible.map(i => `<span class="cr-s-tag">${escHtml(i.name)}</span>`).join('')}</div>
+      </div>`;
+    } else if (eligible.length > 0 && ineligible.length > 0) {
+      // 2) 혼합
+      html += `<div class="cr-grid">
+        <div class="cr-box yes">
+          <div class="cr-box-title">발급 가능</div>
+          <ul class="cr-items">`;
+      eligible.forEach(i => { html += `<li>${escHtml(i.name)}</li>`; });
+      html += `</ul></div>
+        <div class="cr-box no">
+          <div class="cr-box-title">발급 불가</div>
+          <ul class="cr-items">`;
+      ineligible.forEach(i => { html += `<li>${escHtml(i.name)}</li>`; });
+      html += `</ul></div></div>`;
+      DATA.globalNotes.forEach(note => { html += `<div class="global-note">ℹ️ ${escHtml(note)}</div>`; });
+    } else if (eligible.length === 0 && ineligible.length > 0) {
+      // 3) 전액 불가
+      html += `<div class="cr-status cr-fail">
+        <div class="cr-s-title">현금영수증 발행 불가</div>
+        <div class="cr-s-tags">${ineligible.map(i => `<span class="cr-s-tag">${escHtml(i.name)}</span>`).join('')}</div>
+      </div>`;
+      DATA.globalNotes.forEach(note => { html += `<div class="global-note">ℹ️ ${escHtml(note)}</div>`; });
+    }
+    html += `</div>`;
+  }
+
+  html += `<div class="res-card feedback-cta-card">
+    <div class="feedback-cta-text">💬 소중한 의견을 남겨주세요 </div>
+    <button class="btn btn-confirm feedback-cta-btn" onclick="openFeedbackModal()">의견 남기고 이벤트 참여하기</button>
+  </div>`;
+
+  const area = document.getElementById('resultArea');
+  area.innerHTML = html;
+  area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ──────────────────────────────────────────────
+   유틸
+────────────────────────────────────────────── */
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ──────────────────────────────────────────────
+   글씨 자동 축소 (줄바꿈 방지)
+────────────────────────────────────────────── */
+function fitLabelText() {
+  document.querySelectorAll('.cb-label').forEach(label => {
+    label.style.fontSize = '';
+    let size = parseFloat(getComputedStyle(label).fontSize);
+    const padV = parseFloat(getComputedStyle(label).paddingTop)
+               + parseFloat(getComputedStyle(label).paddingBottom);
+    while (size > 9) {
+      const lh = parseFloat(getComputedStyle(label).lineHeight) || size * 1.5;
+      if (label.scrollHeight <= lh + padV + 2) break;
+      size -= 0.5;
+      label.style.fontSize = size + 'px';
+    }
+  });
+}
+
+/* ──────────────────────────────────────────────
+   PC / 모바일 뷰 전환
+────────────────────────────────────────────── */
+function updateWideScreenClass() {
+  document.body.classList.toggle('wide-screen', window.innerWidth >= 768);
+}
+
+function switchView(mode) {
+  const isMobile = mode === 'mobile';
+  document.body.classList.toggle('mobile-preview', isMobile);
+  document.getElementById('btnPC').classList.toggle('active', !isMobile);
+  document.getElementById('btnMobile').classList.toggle('active', isMobile);
+  requestAnimationFrame(fitLabelText);
+}
+
+/* ──────────────────────────────────────────────
+   매장 선택 체크박스 그리드 초기화
+────────────────────────────────────────────── */
+function renderStoreCheckboxes() {
+  const container = document.getElementById('storeGrid');
+  const order = ['일반점포', '별도법인'];
+  container.innerHTML = order.map(group => {
+    const stores = DATA.storeGroups[group] || [];
+    const boxes = stores.map(store => `
+      <label class="cb-label">
+        <input type="checkbox" value="${escHtml(store)}" onchange="onStoreCheck(this)">
+        ${escHtml(store)}
+      </label>`).join('');
+    return `<div class="auth-store-group">
+      <div class="auth-store-group-title">${escHtml(group)}</div>
+      <div class="auth-store-cbgrid">${boxes}</div>
+    </div>`;
+  }).join('');
+}
+
+function onStoreCheck(cb) {
+  document.querySelectorAll('#storeGrid input[type=checkbox]').forEach(el => {
+    el.checked = (el === cb);
+  });
+  document.querySelectorAll('#storeGrid .cb-label').forEach(lbl => {
+    lbl.classList.toggle('checked', lbl.querySelector('input').checked);
+  });
+}
+
+/* ──────────────────────────────────────────────
+   인증
+────────────────────────────────────────────── */
+function submitAuth() {
+  const input   = document.getElementById('authInput');
+  const errEl   = document.getElementById('authError');
+  const storeCb = document.querySelector('#storeGrid input[type=checkbox]:checked');
+
+  if (!storeCb) {
+    errEl.textContent = '매장을 선택해 주세요.';
+    setTimeout(() => { errEl.textContent = ''; }, 2500);
+    return;
+  }
+  // 인증번호 비활성화 - 추후 재활성화 가능
+  // if (input.value === String(DATA.accessCode)) {
+  currentStore = storeCb.value;
+  document.getElementById('authOverlay').classList.add('hidden');
+  document.getElementById('storeBadge').textContent = '현재 매장: 신세계 ' + currentStore;
+  document.getElementById('storeArea').style.display = '';
+  input.value = '';
+  renderCheckboxes();
+  requestAnimationFrame(fitLabelText);
+  // } else {
+  //   errEl.textContent = '인증번호가 올바르지 않습니다.';
+  //   input.value = '';
+  //   input.focus();
+  //   setTimeout(() => { errEl.textContent = ''; }, 2500);
+  // }
+}
+document.getElementById('authInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitAuth();
+});
+
+function goBack() {
+  doReset();
+  document.getElementById('authInput').value = '';
+  document.getElementById('authError').textContent = '';
+  document.getElementById('authOverlay').classList.remove('hidden');
+}
+
+/* ── 시작 ── */
+renderStoreCheckboxes();
+// 점포 선택화면 비활성화 - '본점'을 기본값으로 바로 다음 단계 진입
+currentStore = '본점';
+document.getElementById('authOverlay').classList.add('hidden');
+document.getElementById('storeBadge').textContent = '현재 매장: 신세계 ' + currentStore;
+document.getElementById('storeArea').style.display = '';
+renderCheckboxes();
+renderFaqList();
+updateWideScreenClass();
+
+// 화면 폭 기반 초기 뷰 자동 결정
+switchView(window.innerWidth < 768 ? 'mobile' : 'pc');
+fitLabelText();
+
+window.addEventListener('resize', () => {
+  updateWideScreenClass();
+  fitLabelText();
+});
+new ResizeObserver(() => fitLabelText()).observe(document.getElementById('selectionCard'));
+</script>
+</body>
+</html>
